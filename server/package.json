@@ -1,0 +1,22 @@
+{
+  "name": "backend-proxy",
+  "version": "1.0.0",
+  "description": "后端代理服务，用于安全地与Supabase交互",
+  "main": "backend.js",
+  "scripts": {
+    "start": "node backend.js",
+    "dev": "node backend.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {},
+  "author": "",
+  "license": "ISC",
+  "keywords": [
+    "backend",
+    "proxy",
+    "supabase",
+    "security"
+  ]
+}
