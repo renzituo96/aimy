@@ -6,11 +6,16 @@ const https = require('https');
 const url = require('url');
 const querystring = require('querystring');
 
-// 尝试加载dotenv（仅在开发环境中）
+// 加载环境变量
 try {
-  require('dotenv').config();
-} catch (e) {
-  console.log('未找到dotenv模块，将使用环境变量');
+  // 尝试加载.env文件，仅在开发环境中有效
+  const dotenv = require('dotenv');
+  const result = dotenv.config();
+  if (result.error) {
+    console.warn('警告: .env文件未找到或无法加载，将使用环境变量');
+  }
+} catch (error) {
+  console.warn('警告: 加载.env文件时出错，将使用环境变量');
 }
 
 // 从环境变量获取Supabase配置
@@ -21,8 +26,16 @@ const SUPABASE_CONFIG = {
 };
 
 // 检查必要的环境变量
-if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.key) {
-  console.error('警告: 缺少Supabase配置，请确保已设置环境变量');
+const isVercel = !!process.env.VERCEL;
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_KEY'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('错误: 缺少必要的环境变量:', missingEnvVars.join(', '));
+  console.error('请确保在.env文件中设置了这些变量，或在Vercel项目设置中配置了环境变量');
+  if (!isVercel) {
+    process.exit(1);
+  }
 }
 
 // 创建HTTP服务器

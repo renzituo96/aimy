@@ -25,7 +25,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "regions": ["sfo1", "fra1", "hnd1"],
-  "memory": 1024
+  }
 }

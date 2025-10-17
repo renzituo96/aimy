@@ -1,37 +1,30 @@
 # Vercel部署教程
 
-本教程详细介绍如何将您的UniApp项目及其后端代理服务部署到Vercel平台。
+本文档详细介绍了如何将您的项目部署到Vercel平台，包括必要的配置和步骤。
 
 ## 准备工作
 
-### 1. 创建GitHub/GitLab/Bitbucket仓库
+1. **确保您的项目已完成以下配置**：
+   - 已创建`vercel.json`配置文件
+   - 已修改`server/backend.js`以支持环境变量和Vercel平台
+   - 已修改`services/userService.js`使用相对路径
+   - 已创建`.gitignore`文件以排除敏感信息
 
-首先，将您的项目代码托管到代码仓库中：
+2. **准备账号**：
+   - GitHub账号（用于代码托管）
+   - Vercel账号（用于部署）
 
-1. 在GitHub/GitLab/Bitbucket上创建一个新的仓库
-2. 将本地项目推送到远程仓库：
+3. **准备环境变量**：
+   - Supabase项目URL
+   - Supabase API密钥
 
-```bash
-git init
-git add .
-git commit -m "初始提交"
-git remote add origin 您的仓库URL
-git push -u origin master
-```
+## 项目配置检查
 
-### 2. 准备Vercel账户
+在部署前，请确保以下文件配置正确：
 
-1. 访问 [Vercel官网](https://vercel.com)
-2. 注册/登录您的Vercel账户
-3. 连接您的代码仓库账户（GitHub/GitLab/Bitbucket）
+### 1. `vercel.json`
 
-## 后端服务部署配置
-
-### 1. 修改后端服务文件
-
-首先，我们需要对后端服务进行一些调整，以适应Vercel的部署环境：
-
-1. 创建 `vercel.json` 配置文件：
+确保已包含正确的构建规则和路由配置：
 
 ```json
 {
@@ -40,210 +33,179 @@ git push -u origin master
     {
       "src": "server/backend.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "**/*",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/auth/(.*)",
       "dest": "server/backend.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
 ```
 
-2. 更新 `server/backend.js` 文件，使其能够读取Vercel环境变量：
+### 2. `server/backend.js`
+
+确保已修改为从环境变量读取配置，并支持Vercel平台：
 
 ```javascript
-// 在文件顶部添加
+// 尝试加载dotenv（仅在开发环境中）
+try {
+  require('dotenv').config();
+} catch (e) {
+  console.log('未找到dotenv模块，将使用环境变量');
+}
+
+// 从环境变量获取Supabase配置
+const SUPABASE_CONFIG = {
+  url: process.env.SUPABASE_URL || 'https://bomcaovuvfnoystxrrqf.supabase.co',
+  key: process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvbWNhb3Z1dmZub3lzdHhycnFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MjY2MDksImV4cCI6MjA3NjAwMjYwOX0.-L13h5RR9fFZV4H9Bj3bGf9e3S5N_isWa8kuzqjlhHs'
+};
+
+// 在Vercel环境中，导出服务器请求处理函数
 if (process.env.NODE_ENV === 'production') {
-  // 生产环境配置
-  const SUPABASE_CONFIG = {
-    url: process.env.SUPABASE_URL,
-    key: process.env.SUPABASE_KEY
+  module.exports = (req, res) => {
+    server.emit('request', req, res);
   };
+} else {
+  // 本地开发环境：启动HTTP服务器
+  server.listen(PORT, HOST, () => {
+    // 服务器启动代码...
+  });
 }
 ```
 
-### 2. 修改 `server/package.json`
+### 3. `services/userService.js`
 
-确保您的 `server/package.json` 包含正确的启动脚本：
-
-```json
-{
-  "name": "backend-proxy",
-  "version": "1.0.0",
-  "main": "backend.js",
-  "scripts": {
-    "start": "node backend.js"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.5"
-  }
-}
-```
-
-## 前端应用配置调整
-
-### 1. 更新 `services/userService.js`
-
-修改前端服务层，使其能够根据环境自动切换API地址：
+确保已修改API基础URL为相对路径：
 
 ```javascript
-class UserService {
-  constructor() {
-    // 根据环境判断API地址
-    // 生产环境使用Vercel提供的域名
-    // 开发环境使用本地地址
-    this.baseUrl = process.env.NODE_ENV === 'production' 
-      ? '/api/auth' 
-      : 'http://localhost:3000/api/auth';
-  }
-  
-  // 其他代码保持不变...
+constructor() {
+  // 使用相对路径，这样在部署到Vercel后会自动使用当前域名
+  this.baseUrl = '/api/auth';
 }
 ```
 
-### 2. 创建 `.gitignore` 文件
+## GitHub仓库准备
 
-确保不会将敏感文件提交到仓库：
+1. **初始化Git仓库**（如果尚未初始化）：
+   ```bash
+   git init
+   git add .
+   git commit -m "初始化项目"
+   ```
 
-```
-# 依赖
-node_modules/
-.pnpm-store/
+2. **创建GitHub仓库**并将代码推送到远程：
+   ```bash
+   git remote add origin https://github.com/你的用户名/你的仓库名.git
+   git push -u origin master
+   ```
 
-# 环境变量文件
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+## Vercel部署步骤
 
-# 日志文件
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+### 步骤1：登录Vercel
 
-# IDE相关文件
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+访问 [Vercel官网](https://vercel.com/) 并使用您的GitHub账号登录。
 
-# 构建输出
-/dist
-/unpackage/
-build/
+### 步骤2：导入项目
 
-# 操作系统文件
-.DS_Store
-Thumbs.db
+1. 在Vercel仪表盘中，点击 **"New Project"**
+2. 点击 **"Import"** 或 **"Import from Git Repository"**
+3. 选择您的GitHub仓库
+4. 点击 **"Import"** 按钮
 
-# 缓存文件
-.cache/
-.parcel-cache/
-.next/
-out/
-```
+### 步骤3：配置项目
 
-## 部署步骤
+1. **项目名称**：输入您的项目名称（可选，默认为仓库名称）
 
-### 1. 导入项目到Vercel
-
-1. 登录Vercel账户
-2. 点击右上角的 **New Project**
-3. 选择您的项目仓库
-4. 点击 **Import**
-
-### 2. 配置部署设置
-
-在配置页面中：
-
-1. **FRAMEWORK PRESET**: 选择 **Other** (因为UniApp不是Vercel原生支持的框架)
-2. **BUILD COMMAND**: 留空或根据您的构建流程设置
-3. **OUTPUT DIRECTORY**: 留空或设置为 `/unpackage/dist/build/h5` (如果您有H5构建输出)
-4. **INSTALL COMMAND**: 留空或设置为 `npm install`
-
-### 3. 设置环境变量
-
-1. 滚动到 **Environment Variables** 部分
-2. 添加以下环境变量：
-
+2. **环境变量**：在"Environment Variables"部分添加以下环境变量：
    - `SUPABASE_URL`: 您的Supabase项目URL
    - `SUPABASE_KEY`: 您的Supabase API密钥
    - `NODE_ENV`: production
 
-3. 确保环境变量被正确设置，这些将用于后端服务
+3. **构建和输出设置**：
+   - 构建命令：留空（Vercel会自动检测）
+   - 输出目录：留空（Vercel会自动检测）
+   - 开发命令：留空
 
-### 4. 部署项目
+4. 点击 **"Deploy"** 按钮开始部署过程
 
-1. 点击 **Deploy** 按钮开始部署过程
-2. Vercel将开始构建和部署您的项目
-3. 部署完成后，您将获得一个唯一的预览URL
+### 步骤4：等待部署完成
 
-## 配置域名（可选）
+Vercel将自动开始构建和部署您的项目。部署过程完成后，您将看到成功消息和项目URL。
 
-如果您有自定义域名，可以按照以下步骤设置：
+## 配置自定义域名（可选）
 
-1. 在Vercel项目的 **Settings** 选项卡中，选择 **Domains**
-2. 输入您的自定义域名
-3. 按照提示在您的DNS提供商处添加相应的DNS记录
-4. 等待DNS传播完成（通常需要几分钟到几小时）
+如果您有自定义域名，可以按照以下步骤配置：
 
-## 验证部署
+1. 在Vercel项目页面，点击 **"Settings"**
+2. 选择 **"Domains"**
+3. 输入您的自定义域名
+4. 按照Vercel提供的DNS记录配置说明，在您的域名注册商处添加相应的DNS记录
+5. 等待DNS记录生效（通常需要几分钟到几小时）
 
-部署完成后，验证您的应用是否正常工作：
+## 测试部署
 
-1. 访问您的Vercel部署URL
-2. 尝试注册功能和连接测试功能
-3. 检查网络请求是否正确指向您的Vercel API端点
+部署完成后，访问Vercel提供的URL（例如：`https://your-project.vercel.app`）测试您的应用。
 
-## 常见问题排查
+### 验证API功能
 
-### 1. 环境变量未生效
+测试以下API端点是否正常工作：
 
-- 确认在Vercel项目设置中正确配置了所有必需的环境变量
-- 重新部署项目以应用新的环境变量
+1. **连接测试**：访问 `/api/auth/test-connection`
+2. **用户注册**：向 `/api/auth/register` 发送POST请求
 
-### 2. API路由未正确配置
+## 问题排查
 
-- 检查 `vercel.json` 文件中的路由配置
-- 确保路由路径与您的API端点匹配
+### 常见问题
 
-### 3. 构建失败
+1. **环境变量未正确配置**
+   - 检查Vercel项目设置中的环境变量
+   - 确保变量名称正确且值已正确设置
 
-- 检查构建日志以获取详细错误信息
-- 确保您的项目依赖正确安装
-- 验证Node.js版本兼容性
+2. **CORS错误**
+   - 确保`server/backend.js`中的CORS配置正确
+   - 检查Supabase项目是否允许来自您的域名的请求
 
-### 4. CORS问题
+3. **API端点无法访问**
+   - 检查`vercel.json`中的路由配置
+   - 确认`server/backend.js`已正确导出请求处理函数
 
-- 确保后端服务中正确设置了CORS头
-- 检查是否允许您的前端域名访问API
+4. **构建失败**
+   - 检查构建日志以获取具体错误信息
+   - 确保所有依赖项都已在`package.json`中声明
 
-## 生产环境安全建议
+## 安全注意事项
 
-1. **API密钥保护**：确保所有敏感信息都通过环境变量配置，不硬编码在代码中
-2. **HTTPS**：Vercel默认提供HTTPS，确保所有通信都是加密的
-3. **请求限制**：考虑在生产环境中添加API请求频率限制
-4. **日志记录**：实现适当的日志记录，便于问题排查
-5. **监控**：设置性能和可用性监控
+1. **环境变量保护**：确保敏感信息仅通过环境变量配置，不在代码中硬编码
+2. **Supabase安全**：在Supabase仪表盘中配置适当的访问控制和行级安全策略
+3. **HTTPS**：Vercel自动提供HTTPS，确保所有请求都通过HTTPS进行
+4. **API密钥轮换**：定期轮换Supabase API密钥以提高安全性
 
-## 更新部署
+## 后续维护
 
-每当您向仓库推送新的代码更改时，Vercel会自动触发新的部署。您也可以手动触发部署：
+1. **自动部署**：每次向GitHub仓库推送代码时，Vercel将自动重新部署您的项目
+2. **环境变量管理**：通过Vercel项目设置管理环境变量
+3. **监控和日志**：使用Vercel提供的日志和监控功能查看应用性能和错误
 
-1. 进入Vercel项目页面
-2. 点击 **Deploy** 按钮
-3. 选择 **Redeploy** 或从特定分支部署
+## 联系支持
+
+如果在部署过程中遇到问题：
+- 查阅 [Vercel文档](https://vercel.com/docs)
+- 访问 [Vercel社区](https://vercel.com/community)
+- 联系Vercel支持团队
 
 ---
 
-恭喜！您的项目现在已成功部署到Vercel平台。如果您遇到任何问题，请参考Vercel的官方文档或联系Vercel支持团队。
+祝您部署顺利！
