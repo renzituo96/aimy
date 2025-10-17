@@ -35,20 +35,20 @@
       "use": "@vercel/node"
     },
     {
-      "src": "**/*",
+      "src": "(?!server).*",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/auth/(.*)",
+      "src": "/api/(.*)",
       "dest": "server/backend.js"
     },
     {
       "handle": "filesystem"
     },
     {
-      "src": "/.*",
+      "src": "/",
       "dest": "index.html"
     }
   ]
